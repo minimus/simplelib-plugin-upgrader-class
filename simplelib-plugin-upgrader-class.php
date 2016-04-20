@@ -2,9 +2,8 @@
 /**
  * Class SimpleLibPluginUpgrader.
  * Author: minimus
- * Version 1.0
- * Date: 21.03.2016
- * Time: 12:21
+ * Version 1.1
+ * Author URI: http://simplelib.com
  */
 
 if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
@@ -16,6 +15,15 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 		private $pluginSlug = null;
 		private $name = null;
 		private $homepage = '';
+		private $defaultSections = array(
+			'description',
+			'installation',
+			'faq',
+			'screenshots',
+			'changelog',
+			'reviews',
+			'other_notes'
+		);
 
 		public $enabled = false;
 
@@ -96,15 +104,16 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 				return new WP_Error( $response_code, $response_message );
 			} elseif ( 200 !== $response_code ) {
 				return new WP_Error( $response_code, __( 'An unknown API error occurred.', SAM_PRO_DOMAIN ) );
-			} elseif( 200 == $response_code ) {
+			} elseif ( 200 == $response_code ) {
 				$out = json_decode( wp_remote_retrieve_body( $response ), true );
 				if ( null === $out ) {
 					return new WP_Error( 'api_error', __( 'An unknown API error occurred.', SAM_PRO_DOMAIN ) );
 				}
 
 				return $out;
+			} else {
+				return null;
 			}
-			else return null;
 		}
 
 		public function checkUpdate( $transient ) {
@@ -133,7 +142,7 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 		public function checkInfo( $result, $action, $args ) {
 			if ( $args->slug === $this->slug ) {
 				$pluginInfo = self::request();
-				if ( isset( $pluginInfo['wordpress_plugin_metadata'] ) ) {
+				if ( is_array( $pluginInfo ) && isset( $pluginInfo['wordpress_plugin_metadata'] ) ) {
 					$info        = $pluginInfo['wordpress_plugin_metadata'];
 					$versions    = self::getAttribute( $pluginInfo['attributes'], 'compatible-software' );
 					$sections    = explode( '<h2 id="item-description__changelog">Changelog</h2>', $pluginInfo['description'] );
