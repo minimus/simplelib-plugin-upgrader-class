@@ -1,4 +1,4 @@
-# Simplelib Plugin Upgrader Class
+# SimpleLib Plugin Upgrader Class
 Envato API. Upgrading CodeCanyon plugin from WordPress
 
 All the upgrading data are provided by the server WordPress, i.e. When your blog requests this data from wordpress.org server, it gets all the necessary information. Envato Server also allows you to receive all the necessary information about updating the plugin that is sold on CodeCanyon (plugins on Envato Market), but with another data structure (other than from WordPress). Therefore the task is to:

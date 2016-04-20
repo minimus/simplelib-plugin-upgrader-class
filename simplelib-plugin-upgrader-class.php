@@ -2,7 +2,7 @@
 /**
  * Class SimpleLibPluginUpgrader.
  * Author: minimus
- * Version 1.1
+ * Version 1.2
  * Author URI: http://simplelib.com
  */
 
@@ -26,8 +26,24 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 		);
 
 		public $enabled = false;
+		public $callback = null;
 
-		public function __construct( $id, $data ) {
+		/**
+		 * SimpleLibPluginUpgrader constructor.
+		 *
+		 * @param string $id Envato Item ID
+		 * @param array $data Contains the required parameters
+		 *                      token — Personal Token of buyer
+		 *                      version — plugin current version
+		 *                      slug — slug of plugin (i.e.: sam-pro-lite)
+		 *                      pluginSlug — full slug of plugin (plugin folder + name of main plugin file,
+		 *                        i.e.: sam-pro-lite/sam-pro-lite.php)
+		 *                      name — name of plugin
+		 *                      homepage – plugin homepage URL, not required
+		 * @param null|callable $callback The function provides splitting of the content of the Envato plugin description
+		 *                                to the standard sections.
+		 */
+		public function __construct( $id, $data, $callback = null ) {
 			if ( ! empty( $id ) ) {
 				$this->itemId         = $id;
 				$this->personalToken  = ( isset( $data['token'] ) ) ? $data['token'] : null;
@@ -36,6 +52,7 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 				$this->pluginSlug     = ( isset( $data['pluginSlug'] ) ) ? $data['pluginSlug'] : null;
 				$this->name           = ( isset( $data['name'] ) ) ? $data['name'] : null;
 				$this->homepage       = ( isset( $data['homepage'] ) ) ? $data['homepage'] : '';
+				$this->callback       = $callback;
 			}
 			$this->enabled = self::is_enabled();
 			if ( $this->enabled ) {
@@ -45,6 +62,11 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 			}
 		}
 
+		/**
+		 * Checking for all the transmitted data to the class
+		 *
+		 * @return bool
+		 */
 		private function is_enabled() {
 			return (
 				! is_null( $this->itemId ) &&
@@ -56,6 +78,14 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 			);
 		}
 
+		/**
+		 * Preparing of the part of received data
+		 *
+		 * @param array $data  preparing data
+		 * @param string $name the name of input data part
+		 *
+		 * @return array|bool|string
+		 */
 		private function getAttribute( $data, $name ) {
 			$out = '';
 			foreach ( $data as $key => $val ) {
@@ -76,6 +106,35 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 			return $out;
 		}
 
+		/**
+		 * Default function for splitting content. If user function is not defined, provides splitting of the content
+		 * of the Envato plugin description to the standard sections.
+		 * Default sections: description, installation, faq,	screenshots, changelog,	reviews, other_notes.
+		 *
+		 * @param null|array $data content of the Envato plugin description
+		 *
+		 * @return array
+		 */
+		private function getSections( $data = null ) {
+			if ( is_null( $data ) || empty( $data ) ) {
+				return array();
+			}
+
+			$out                = array();
+			$sections           = explode( '<h2 id="item-description__changelog">Changelog</h2>', $data );
+			$out['description'] = ( isset( $sections[0] ) ) ? $sections[0] : '';
+			$out['changelog']   = ( isset( $sections[1] ) ) ? $sections[1] : '';
+
+			return $out;
+		}
+
+		/**
+		 * Request data from Envato API
+		 *
+		 * @param string $data type of data for request
+		 *
+		 * @return array|mixed|null|object|WP_Error
+		 */
 		public function request( $data = 'info' ) {
 			$args = array(
 				'headers' => array(
@@ -116,6 +175,14 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 			}
 		}
 
+		/**
+		 * pre_set_site_transient_update_plugins filter handler. Checking the availability of an update of the plugin
+		 * on the CodeCanyon.
+		 *
+		 * @param object $transient
+		 *
+		 * @return object
+		 */
 		public function checkUpdate( $transient ) {
 			if ( empty( $transient->checked ) ) {
 				return $transient;
@@ -139,15 +206,24 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 			return $transient;
 		}
 
+		/**
+		 * plugins_api filter handler. Retrieving plugin information from Envato API.
+		 *
+		 * @param false|object|array $result The result object or array. Default false.
+		 * @param string             $action The type of information being requested from the Plugin Install API.
+		 * @param object             $args   Plugin API arguments.
+		 *
+		 * @return bool|object
+		 */
 		public function checkInfo( $result, $action, $args ) {
 			if ( $args->slug === $this->slug ) {
 				$pluginInfo = self::request();
 				if ( is_array( $pluginInfo ) && isset( $pluginInfo['wordpress_plugin_metadata'] ) ) {
-					$info        = $pluginInfo['wordpress_plugin_metadata'];
-					$versions    = self::getAttribute( $pluginInfo['attributes'], 'compatible-software' );
-					$sections    = explode( '<h2 id="item-description__changelog">Changelog</h2>', $pluginInfo['description'] );
-					$description = ( isset( $sections[0] ) ) ? $sections[0] : '';
-					$changelog   = ( isset( $sections[1] ) ) ? $sections[1] : '';
+					$info     = $pluginInfo['wordpress_plugin_metadata'];
+					$versions = self::getAttribute( $pluginInfo['attributes'], 'compatible-software' );
+					$sections = ( is_null( $this->callback ) ) ?
+						self::getSections( $pluginInfo['description'] ) :
+						call_user_func( $this->callback, $pluginInfo['description'] );
 
 					$plugin                  = new stdClass();
 					$plugin->name            = $info['plugin_name'];
@@ -162,10 +238,7 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 					$plugin->last_updated    = $pluginInfo['updated_at'];
 					$plugin->added           = $pluginInfo['published_at'];
 					$plugin->homepage        = $this->homepage;
-					$plugin->sections        = array(
-						'description' => $description,
-						'changelog'   => $changelog
-					);
+					$plugin->sections        = $sections;
 					$plugin->download_link   = $pluginInfo['url'];
 					$plugin->banners         = array(
 						'high' => $pluginInfo['previews']['landscape_preview']['landscape_url']
@@ -180,6 +253,13 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 			}
 		}
 
+		/**
+		 * upgrader_package_options filter handler. Retrieving plugin package URI from Envato API.
+		 *
+		 * @param array $options The package options before running an update.
+		 *
+		 * @return array
+		 */
 		public function setUpdatePackage( $options ) {
 			$package = $options['package'];
 			if ( $package === $this->pluginSlug ) {
