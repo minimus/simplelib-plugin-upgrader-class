@@ -1,8 +1,8 @@
 <?php
 /**
  * Class SimpleLibPluginUpgrader.
+ * Version 1.3
  * Author: minimus
- * Version 1.2
  * Author URI: http://simplelib.com
  */
 
@@ -121,9 +121,12 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 			}
 
 			$out                = array();
-			$sections           = explode( '<h2 id="item-description__changelog">Changelog</h2>', $data );
+			$m                  = preg_match_all( "/<h2(.*?)>(.+?)<\/h2>/", $data, $matches );
+			$sections           = preg_split( "/<h2(.*?)>(.+?)<\/h2>/", $data );
 			$out['description'] = ( isset( $sections[0] ) ) ? $sections[0] : '';
-			$out['changelog']   = ( isset( $sections[1] ) ) ? $sections[1] : '';
+			foreach ( $matches[2] as $key => $match ) {
+				$out[ strtolower( $match ) ] = $sections[ $key + 1 ];
+			}
 
 			return $out;
 		}
