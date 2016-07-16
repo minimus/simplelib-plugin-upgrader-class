@@ -1,7 +1,7 @@
 <?php
 /**
  * Class SimpleLibPluginUpgrader.
- * Version 1.3
+ * Version 1.4
  * Author: minimus
  * Author URI: http://simplelib.com
  */
@@ -15,6 +15,7 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 		private $pluginSlug = null;
 		private $name = null;
 		private $homepage = '';
+		private $errorString = '';
 		private $defaultSections = array(
 			'description',
 			'installation',
@@ -40,6 +41,7 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 		 *                        i.e.: sam-pro-lite/sam-pro-lite.php)
 		 *                      name — name of plugin
 		 *                      homepage – plugin homepage URL, not required
+		 *                      errorString - localized error string
 		 * @param null|callable $callback The function provides splitting of the content of the Envato plugin description
 		 *                                to the standard sections.
 		 */
@@ -52,6 +54,7 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 				$this->pluginSlug     = ( isset( $data['pluginSlug'] ) ) ? $data['pluginSlug'] : null;
 				$this->name           = ( isset( $data['name'] ) ) ? $data['name'] : null;
 				$this->homepage       = ( isset( $data['homepage'] ) ) ? $data['homepage'] : '';
+				$this->errorString    = ( isset( $data['errorString'] ) ) ? $data['errorString'] : 'An unknown API error occurred.';
 				$this->callback       = $callback;
 			}
 			$this->enabled = self::is_enabled();
@@ -165,11 +168,11 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 			if ( 200 !== $response_code && ! empty( $response_message ) ) {
 				return new WP_Error( $response_code, $response_message );
 			} elseif ( 200 !== $response_code ) {
-				return new WP_Error( $response_code, __( 'An unknown API error occurred.', SAM_PRO_DOMAIN ) );
+				return new WP_Error( $response_code, $this->errorString );
 			} elseif ( 200 == $response_code ) {
 				$out = json_decode( wp_remote_retrieve_body( $response ), true );
 				if ( null === $out ) {
-					return new WP_Error( 'api_error', __( 'An unknown API error occurred.', SAM_PRO_DOMAIN ) );
+					return new WP_Error( 'api_error', $this->errorString );
 				}
 
 				return $out;
