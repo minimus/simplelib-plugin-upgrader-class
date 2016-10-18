@@ -151,13 +151,13 @@ if ( ! class_exists( 'SimpleLibPluginUpgrader' ) ) {
 
 			switch ( $data ) {
 				case 'info':
-					$url = 'https://api.envato.com/v2/market/catalog/item?id=' . $this->itemId;
+					$url = 'https://api.envato.com/v3/market/catalog/item?id=' . $this->itemId;
 					break;
 				case 'link':
-					$url = 'https://api.envato.com/v2/market/buyer/download?item_id=' . $this->itemId . '&shorten_url=true';
+					$url = 'https://api.envato.com/v3/market/buyer/download?item_id=' . $this->itemId . '&shorten_url=true';
 					break;
 				default:
-					$url = 'https://api.envato.com/v2/market/catalog/item?id=' . $this->itemId;
+					$url = 'https://api.envato.com/v3/market/catalog/item?id=' . $this->itemId;
 			}
 
 			$response = wp_remote_get( esc_url_raw( $url ), $args );
